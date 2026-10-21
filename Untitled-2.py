@@ -169,17 +169,32 @@ if kpss_result[1] < 0.05:
 else:
     print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
 
-#Segun los aspectos de los test, la serie no es estacionaria, por lo que se procede a diferenciarla
+#Segun los aspectos de los test, la serie no es estacionaria, por lo que se procede a aplicar logaritmo y luego diferenciarla 
 
-serie_TC_diff = serie_TC.diff().dropna()
+serie_TC_log = np.log(serie_TC)
 
-# Gráfica de la serie de tiempo de la "diferencia exportaciones tradicionales"
+# Gráfica 
 plt.figure(figsize=(10, 5))
-plt.plot(serie_TC_diff)
-plt.title("Serie diferenciada")
+plt.plot(serie_TC_log)
+plt.title("Serie con logaritmo aplicado - Tasa de cambio nominal, 1991-2026")
 plt.xlabel("Fecha")
 plt.ylabel("Valor")
 plt.grid(True)
 plt.show()
+
+#Ahora, aplicamos la diferenciación a la serie logarítmica para hacerla estacionaria
+
+serie_TC_log_diff = serie_TC_log.diff().dropna()
+
+plt.figure(figsize=(10, 5))
+plt.plot(serie_TC_log_diff)
+plt.title("Serie diferenciada del logaritmo - Tasa de cambio nominal, 1991-2026")
+plt.xlabel("Fecha")
+plt.ylabel("Valor")
+plt.grid(True)
+plt.show()
+
+
+
 
 
