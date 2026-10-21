@@ -169,3 +169,17 @@ if kpss_result[1] < 0.05:
 else:
     print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
 
+#Segun los aspectos de los test, la serie no es estacionaria, por lo que se procede a diferenciarla
+
+serie_TC_diff = serie_TC.diff().dropna()
+
+# Gráfica de la serie de tiempo de la "diferencia exportaciones tradicionales"
+plt.figure(figsize=(10, 5))
+plt.plot(serie_TC_diff)
+plt.title("Serie diferenciada")
+plt.xlabel("Fecha")
+plt.ylabel("Valor")
+plt.grid(True)
+plt.show()
+
+
