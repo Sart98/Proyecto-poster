@@ -389,18 +389,351 @@ plt.show()
 
 df_TCR = pd.read_csv(
     'datos/TCR.csv',
-    sep = ";",  # Le dice a pandas: "el separador de columnas es el punto y coma"
-    decimal=',',  # Le dice a pandas: "la coma es el separador decimal"
-    thousands='.',  # Le dice a pandas: "el punto es el separador de miles"
+    sep = ",",  # Le dice a pandas: "el separador de columnas es el punto y coma"
+    decimal='.',  # Le dice a pandas: "la coma es el separador decimal"
 )
 
 #Ahora, cambiamos el nombre de las columnas para que sean más fáciles de manejar en el código
 
 df_TCR = df_TCR.rename(
     columns={
-        'Periodo(MMM DD, AAAA)': 'fecha',
-        'Tasa Representativa del Mercado (TRM)': 'tasa',}
+        'Fecha': 'fecha',
+        'TCR': 'tasa',}
 )
 
-print(df_TCR.head()) #Imprimimos los primeros 5 datos de la base de datos para verificar que se haya cargado correctamente
+df_TCR['fecha'] = pd.to_datetime(df_TCR['fecha']) #Esto crea un indice interno
+df_TCR = df_TCR.set_index('fecha').sort_index() #Sort_index() ordena el indice de menor a mayor
+#Convertimos la columna de tasa en una serie.
 
+serie_TCR = df_TCR['tasa']
+
+print(serie_TCR.describe()) #Datos estadísticos de la serie de tiempo
+
+plt.figure(figsize=(10, 5))
+plt.plot(serie_TCR)
+plt.title("Tasa de cambio real, 1986-2026")
+plt.xlabel("fecha")
+plt.ylabel("tasa")
+plt.grid(True)
+plt.show()
+
+#Hacemos la FAC y FACP de la serie de tiempo de la tasa de cambio real
+
+#Establecemos los ejes
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+plot_acf(
+    serie_TCR.dropna(),
+    lags=24,
+    alpha=0.05,
+    bartlett_confint=False,
+    ax=axes[0],
+)
+axes[0].set_title('FAC - Tasa de Cambio Real')
+
+
+plot_pacf(
+    serie_TCR.dropna(),
+    lags=24,
+    alpha=0.05,
+    method='ywm',
+    ax=axes[1],
+)
+axes[1].set_title('FACP - Tasa de Cambio Real')
+
+# Mostrar la gráfica
+plt.tight_layout()
+plt.show()
+
+#Ahora, realizamos las pruebas de raiz unitaria ADF y KPSS a la serie de TCR, para ver si es estacionaria o no. En caso de no serlo, se procede a aplicar logaritmo y diferenciación a la serie.
+
+adf_result5 = adfuller(serie_TCR.dropna(), regression='c') # Test de Dickey Fuller sin intercepto y tendencia determínistica
+
+# Nota: En el test de ADF si no rechazo la H0 la serie no es estacionaria
+#       y si rechazo la H0 la serie es estacionaria. 
+
+print("=== Test ADF ===")
+print("Estadístico ADF:", adf_result5[0])
+print("p-valor:", adf_result5[1])
+print("Rezagos usados:", adf_result5[2]) 
+print("Observaciones:", adf_result5[3])
+print("Valores críticos:")
+for nivel, valor in adf_result5[4].items():
+    print(f"{nivel}: {valor}")
+
+if adf_result5[1] < 0.05:
+    print("ADF: Rechazamos H0. Según el test, la serie es estacionaria.")
+else:
+    print("ADF: No rechazamos H0. Según el test, la serie no es estacionaria.")
+
+# Test KPSS
+kpss_result5 = kpss(serie_TCR.dropna(), regression="c", nlags="auto")
+
+# Nota: En prueba KPSS se interpreta al contario que una prueba ADF.
+#       Si no rechazo la H0 la serie es estacionaria
+#       y si rechazo la H0 la serie es no estacionaria. 
+
+print("\n=== Test KPSS ===")
+print("Estadístico KPSS:", kpss_result5[0])
+print("p-valor:", kpss_result5[1])
+print("Rezagos usados:", kpss_result5[2])
+print("Valores críticos:")
+for nivel, valor in kpss_result5[3].items():
+    print(f"{nivel}: {valor}")
+
+if kpss_result5[1] < 0.05:
+    print("KPSS: rechazamos H0. Según el test, la serie es no estacionaria.")
+else:
+    print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
+
+#Como no es estacionaria, procedemos a aplicar logaritmo y diferenciación a la serie de TCR
+
+serie_TCR_log = np.log(serie_TCR)
+
+plt.figure(figsize=(10, 5))
+plt.plot(serie_TCR_log)
+plt.title("Serie con logaritmo aplicado - Tasa de cambio real, 1986-2026")
+plt.xlabel("Fecha")
+plt.ylabel("Valor")
+plt.grid(True)
+plt.show()
+
+serie_TCR_log_diff = serie_TCR_log.diff().dropna()
+
+plt.figure(figsize=(10, 5))
+plt.plot(serie_TCR_log_diff)
+plt.title("Serie diferenciada y con logaritmo aplicado - Tasa de cambio real, 1986-2026")
+plt.xlabel("Fecha")
+plt.ylabel("Valor")
+plt.grid(True)
+plt.show()
+
+#Ahora, realizamos la prueba de estacionariedad ADF y KPSS a la serie diferenciada del logaritmo de TCR
+
+adf_result6 = adfuller(serie_TCR_log_diff.dropna(), regression='c') # Test de Dickey Fuller sin intercepto y tendencia determínistica
+
+# Nota: En el test de ADF si no rechazo la H0 la serie no es estacionaria
+#       y si rechazo la H0 la serie es estacionaria. 
+
+print("=== Test ADF ===")
+print("Estadístico ADF:", adf_result6[0])
+print("p-valor:", adf_result6[1])
+print("Rezagos usados:", adf_result6[2]) 
+print("Observaciones:", adf_result6[3])
+print("Valores críticos:")
+for nivel, valor in adf_result6[4].items():
+    print(f"{nivel}: {valor}")
+
+if adf_result6[1] < 0.05:
+    print("ADF: Rechazamos H0. Según el test, la serie es estacionaria.")
+else:
+    print("ADF: No rechazamos H0. Según el test, la serie no es estacionaria.")
+
+# Test KPSS
+kpss_result6 = kpss(serie_TCR_log_diff.dropna(), regression="c", nlags="auto")
+
+# Nota: En prueba KPSS se interpreta al contario que una prueba ADF.
+#       Si no rechazo la H0 la serie es estacionaria
+#       y si rechazo la H0 la serie es no estacionaria. 
+
+print("\n=== Test KPSS ===")
+print("Estadístico KPSS:", kpss_result6[0])
+print("p-valor:", kpss_result6[1])
+print("Rezagos usados:", kpss_result6[2])
+print("Valores críticos:")
+for nivel, valor in kpss_result6[3].items():
+    print(f"{nivel}: {valor}")
+
+if kpss_result6[1] < 0.05:
+    print("KPSS: rechazamos H0. Según el test, la serie es no estacionaria.")
+else:
+    print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
+
+#Ahora, dado que es estacionario, realizamos la FAC y FACP de la serie diferenciada del logaritmo de TCR para determinar los parámetros p y q del modelo SARIMAX
+
+#1 IDENTIFICACIÓN 
+
+#Establecemos los ejes
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+plot_acf(
+    serie_TCR_log_diff.dropna(),
+    lags=24,
+    alpha=0.05,
+    bartlett_confint=False,
+    ax=axes[0],
+)
+axes[0].set_title('FAC - Tasa de Cambio Real Diferenciada y Logaritmada')
+
+
+plot_pacf(
+    serie_TCR_log_diff.dropna(),
+    lags=24,
+    alpha=0.05,
+    method='ywm',
+    ax=axes[1],
+)
+axes[1].set_title('FACP - Tasa de Cambio Real Diferenciada y Logaritmada')
+
+# Mostrar la gráfica
+plt.tight_layout()
+plt.show()
+
+#Dado que tanto la FAC como la FACP muestran que solo la primera autocorrelación es significativa, se procede a hacer un modelo ARIMA (1,1,1)
+
+#2. ESTIMACIÓN
+
+#Se utiliza un modelo ARIMA (1,1,1)
+
+modelo1_ARIMA = SARIMAX(
+    serie_TCR_log,
+    order=(1, 1, 1),
+    trend="n",
+    enforce_stationarity=False,
+    enforce_invertibility=False
+)
+
+Resultados_ARIMA = modelo1_ARIMA.fit(disp=False)
+
+print(Resultados_ARIMA.summary())
+
+#Dado que el modelo ARIMA (1,1,1) no resultvo significativo en sus parametros, intentamos un ARIMA (0,1,1)
+
+modelo1_MA = SARIMAX(
+    serie_TCR_log,
+    order=(0, 1, 1),
+    trend="n",
+    enforce_stationarity=False,
+    enforce_invertibility=False
+)
+
+Resultados_MA = modelo1_MA.fit(disp=False)
+
+print(Resultados_MA.summary())
+
+#Ahora, probaremos un ARIMA(1,1,0) para ver si es mejor que el ARIMA(0,1,1)
+
+Modelo_AR = SARIMAX(
+    serie_TCR_log,
+    order=(1, 1, 0),
+    trend="n",
+    enforce_stationarity=False,
+    enforce_invertibility=False
+)
+
+Resultados_AR = Modelo_AR.fit(disp=False)
+
+print(Resultados_AR.summary())
+
+
+
+
+#Aunque ambos modelos ARIMA(0,1,1) y ARIMA(1,1,0) son significativos, el ARIMA(1,1,0) tiene un AIC y BIC más bajos, por lo que se procede a hacer la validación de supuestos con este modelo
+
+#3. VALIDACIÓN DE SUPUESTOS
+
+# Residuales del modelo
+residuales = Resultados_AR.resid.dropna()
+
+# Los residuales son un objeto tipo Pandas.Series
+type(residuales)
+
+# Gráfica de los residuales (deberían comportarse como ruido blanco)
+plt.figure(figsize=(10, 5))
+plt.plot(residuales.iloc[1:-1])
+plt.title("Residuales del modelo AR(1)")
+plt.xlabel("Fecha")
+plt.ylabel("Valor")
+plt.grid(True)
+plt.show()
+
+# Descripción de los residuales 
+print(residuales.describe())
+
+# Encontrar la fecha del valor máximo en tus residuos
+fecha_maxima = residuales.idxmax()
+print("Fecha del choque extremo:", fecha_maxima)
+
+#Este primer dato atipico de residuo ocurre por un error de estimación, y no es algo atado en si al modelo.
+#Esto se conoce como efecto de inicialización del modelo
+
+ljung_box = acorr_ljungbox(
+    residuales,
+    lags=[6, 12, 18, 24],
+    return_df=True
+)
+
+print("Prueba Ljung-Box")
+print(ljung_box)
+#Ninguno de los p-value salio menor a 0.05, por lo que no hay autocorrelación serial con los residuos.
+
+#Prueba ARCH de heterocedasticidad
+
+arch_test = het_arch(residuales, nlags=12) 
+
+print("Prueba ARCH")
+print("LM statistic:", arch_test[0])
+print("LM p-value:", arch_test[1])
+
+#Como se puede ver, existe heterocedasticidad en los residuos, más esto se puede atribuir a la naturaleza de la serie de tiempo, dado que la tasa de cambio real es una serie que presenta cambios abruptos, por lo que no es raro que los residuos presenten heterocedasticidad. Sin embargo, esto no afecta la validez del modelo, dado que los residuos no presentan autocorrelación serial.
+
+# Prueba de normalidad Jarque-Bera
+
+jb_test = jarque_bera(residuales.iloc[1:-1])
+
+print("Prueba Jarque-Bera")
+print("Jarque-Bera statistic:", jb_test.statistic)
+print("Jarque-Bera p-value:", jb_test.pvalue)
+
+#Como se puede ver, los residuos no presentan normalidad, sin embargo, esto puede ser atribuido al efecto de inicialización del modelo, dado que el primer residuo es un valor atípico. Por lo que se procede a eliminar el primer residuo y volver a hacer la prueba de normalidad.
+residuales_sin_primer = residuales.iloc[1:]
+jb_test_sin_primer = jarque_bera(residuales_sin_primer)
+
+
+print("Prueba Jarque-Bera (sin primer residuo)")
+print("Jarque-Bera statistic:", jb_test_sin_primer.statistic)
+print("Jarque-Bera p-value:", jb_test_sin_primer.pvalue)
+
+
+#Como se puede ver, los residuos no presentan normalidad, sin embargo, esto puede ser atribuido a la naturaleza de la serie de tiempo, dado que la tasa de cambio real es una serie que presenta cambios abruptos, por lo que no es raro que los residuos no presenten normalidad. Sin embargo, esto no afecta la validez del modelo, dado que los residuos no presentan autocorrelación serial ni heterocedasticidad.
+
+#4. PRONÓSTICO
+
+pronostico_log = Resultados_AR.get_forecast(steps=12)
+
+# Pronóstico puntual e intervalos de predicción del logaritmo de las exportaciones tradicionales
+pronostico_puntual_log = pronostico_log.predicted_mean
+varianza_pronostico_log = pronostico_log.var_pred_mean
+intervalos_log = pronostico_log.conf_int()
+
+# Al retransformar desde logaritmos, exp(E[log(y)]) corresponde a la mediana.
+# Para obtener la media en niveles se usa la corrección por sesgo:
+# E[y] = exp(mu + 0.5 * sigma^2), bajo normalidad en la escala logarítmica.
+pronostico_nivel = np.exp(pronostico_puntual_log + 0.5 * varianza_pronostico_log)
+intervalos_nivel = np.exp(intervalos_log)
+
+tabla_pronostico = pd.DataFrame({
+    "pronostico": pronostico_nivel,
+    "limite_inferior": intervalos_nivel.iloc[:, 0],
+    "limite_superior": intervalos_nivel.iloc[:, 1]
+})
+
+print(tabla_pronostico)
+
+# Gráfica del pronóstico
+plt.figure(figsize=(10, 5))
+plt.plot(serie_TCR, label="Datos históricos")
+plt.plot(pronostico_nivel, label="Pronóstico", color="orange")
+plt.fill_between(
+    pronostico_nivel.index,
+    intervalos_nivel.iloc[:, 0],
+    intervalos_nivel.iloc[:, 1],
+    color="pink",
+    alpha=0.3,
+    label="Intervalo de confianza"
+)
+plt.title("Pronóstico de la Tasa de Cambio Real")
+plt.xlabel("Fecha")
+plt.ylabel("Tasa de Cambio Real")
+plt.legend()
+plt.show()
