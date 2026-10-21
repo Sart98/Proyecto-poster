@@ -124,3 +124,48 @@ axes[1].set_title('FACP - Tasa de Cambio Mensual')
 # Mostrar la gráfica
 plt.tight_layout()
 plt.show()
+
+
+
+# %% Tests de Raíz Unitaria 
+
+# Test de Augmented Dickey Fuller (ADF)
+adf_result = adfuller(serie_TC.dropna(), regression='ct') # Test de Dickey Fuller sin intercepto y tendencia determínistica
+
+# Nota: En el test de ADF si no rechazo la H0 la serie no es estacionaria
+#       y si rechazo la H0 la serie es estacionaria. 
+
+print("=== Test ADF ===")
+print("Estadístico ADF:", adf_result[0])
+print("p-valor:", adf_result[1])
+print("Rezagos usados:", adf_result[2]) 
+print("Observaciones:", adf_result[3])
+print("Valores críticos:")
+for nivel, valor in adf_result[4].items():
+    print(f"{nivel}: {valor}")
+
+if adf_result[1] < 0.05:
+    print("ADF: Rechazamos H0. Según el test, la serie es estacionaria.")
+else:
+    print("ADF: No rechazamos H0. Según el test, la serie no es estacionaria.")
+
+# Test KPSS
+kpss_result = kpss(serie_TC.dropna(), regression="ct", nlags="auto")
+
+# Nota: En prueba KPSS se interpreta al contario que una prueba ADF.
+#       Si no rechazo la H0 la serie es estacionaria
+#       y si rechazo la H0 la serie es no estacionaria. 
+
+print("\n=== Test KPSS ===")
+print("Estadístico KPSS:", kpss_result[0])
+print("p-valor:", kpss_result[1])
+print("Rezagos usados:", kpss_result[2])
+print("Valores críticos:")
+for nivel, valor in kpss_result[3].items():
+    print(f"{nivel}: {valor}")
+
+if kpss_result[1] < 0.05:
+    print("KPSS: rechazamos H0. Según el test, la serie es no estacionaria.")
+else:
+    print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
+
