@@ -194,7 +194,49 @@ plt.ylabel("Valor")
 plt.grid(True)
 plt.show()
 
+#Realizamos la prueba de estacionariedad ADF y KPSS a la serie diferenciada del logaritmo
 
+# Test de Augmented Dickey Fuller (ADF)
+adf_result2 = adfuller(serie_TC_log_diff.dropna(), regression='c') # Test de Dickey Fuller sin intercepto y tendencia determínistica
+
+# Nota: En el test de ADF si no rechazo la H0 la serie no es estacionaria
+#       y si rechazo la H0 la serie es estacionaria. 
+
+print("=== Test ADF ===")
+print("Estadístico ADF:", adf_result2[0])
+print("p-valor:", adf_result2[1])
+print("Rezagos usados:", adf_result2[2]) 
+print("Observaciones:", adf_result2[3])
+print("Valores críticos:")
+for nivel, valor in adf_result[4].items():
+    print(f"{nivel}: {valor}")
+
+if adf_result2[1] < 0.05:
+    print("ADF: Rechazamos H0. Según el test, la serie es estacionaria.")
+else:
+    print("ADF: No rechazamos H0. Según el test, la serie no es estacionaria.")
+
+# Test KPSS
+kpss_result2 = kpss(serie_TC_log_diff.dropna(), regression="c", nlags="auto")
+
+# Nota: En prueba KPSS se interpreta al contario que una prueba ADF.
+#       Si no rechazo la H0 la serie es estacionaria
+#       y si rechazo la H0 la serie es no estacionaria. 
+
+print("\n=== Test KPSS ===")
+print("Estadístico KPSS:", kpss_result2[0])
+print("p-valor:", kpss_result2[1])
+print("Rezagos usados:", kpss_result2[2])
+print("Valores críticos:")
+for nivel, valor in kpss_result[3].items():
+    print(f"{nivel}: {valor}")
+
+if kpss_result2[1] < 0.05:
+    print("KPSS: rechazamos H0. Según el test, la serie es no estacionaria.")
+else:
+    print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
+
+    
 
 
 
