@@ -236,7 +236,171 @@ if kpss_result2[1] < 0.05:
 else:
     print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
 
-    
+#Ahora, para meter la variable exogena (reservas internacionales netas) debemos asegurarnos de que también sean estacionarias, para así evitar una regresión espuria. Por lo que se procede a hacer la misma prueba de estacionariedad a la serie de RI
+
+#Primero, nos toca volver las RI una serie 
+
+serie_RI = df_RI_TC['RIN']
+
+print(serie_RI.describe()) #Datos estadísticos de la serie de tiempo
+
+plt.figure(figsize=(10, 5))
+plt.plot(serie_RI)
+plt.title("Reservas internacionales netas, 1991-2026")
+plt.xlabel("fecha")
+plt.ylabel("tasa")
+plt.grid(True)
+plt.show()
+
+#Realizamos el rest de raiz unitaria sobre la serie de RI, si no es estacionaria, procedemos a difernciar y aplicar logaritmo
+
+adf_result3 = adfuller(serie_RI.dropna(), regression='ct') # Test de Dickey Fuller sin intercepto y tendencia determínistica
+
+# Nota: En el test de ADF si no rechazo la H0 la serie no es estacionaria
+#       y si rechazo la H0 la serie es estacionaria. 
+
+print("=== Test ADF ===")
+print("Estadístico ADF:", adf_result3[0])
+print("p-valor:", adf_result3[1])
+print("Rezagos usados:", adf_result3[2]) 
+print("Observaciones:", adf_result3[3])
+print("Valores críticos:")
+for nivel, valor in adf_result[4].items():
+    print(f"{nivel}: {valor}")
+
+if adf_result3[1] < 0.05:
+    print("ADF: Rechazamos H0. Según el test, la serie es estacionaria.")
+else:
+    print("ADF: No rechazamos H0. Según el test, la serie no es estacionaria.")
+
+# Test KPSS
+kpss_result3 = kpss(serie_RI.dropna(), regression="ct", nlags="auto")
+
+# Nota: En prueba KPSS se interpreta al contario que una prueba ADF.
+#       Si no rechazo la H0 la serie es estacionaria
+#       y si rechazo la H0 la serie es no estacionaria. 
+
+print("\n=== Test KPSS ===")
+print("Estadístico KPSS:", kpss_result3[0])
+print("p-valor:", kpss_result3[1])
+print("Rezagos usados:", kpss_result3[2])
+print("Valores críticos:")
+for nivel, valor in kpss_result[3].items():
+    print(f"{nivel}: {valor}")
+
+if kpss_result3[1] < 0.05:
+    print("KPSS: rechazamos H0. Según el test, la serie es no estacionaria.")
+else:
+    print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
+
+#Dado que la serie de RI no es estacionaria, procedemos a aplicar logaritmo y diferenciación a la serie de RI
+
+serie_RI_log = np.log(serie_RI)
+
+plt.figure(figsize=(10, 5))
+plt.plot(serie_RI_log)
+plt.title("Serie con logaritmo aplicado - Reservas internacionales netas, 1991-2026")
+plt.xlabel("Fecha")
+plt.ylabel("Valor")
+plt.grid(True)
+plt.show()
+
+serie_RI_log_diff = serie_RI_log.diff().dropna()
+
+plt.figure(figsize=(10, 5))
+plt.plot(serie_RI_log_diff)
+plt.title("Serie con logaritmo y diferenciada - Reservas internacionales netas, 1991-2026")
+plt.xlabel("Fecha")
+plt.ylabel("Valor")
+plt.grid(True)
+plt.show()
+
+#Ahora, realizamos la prueba de estacionariedad ADF y KPSS a la serie diferenciada del logaritmo de RI
+
+adf_result4 = adfuller(serie_RI_log_diff.dropna(), regression='ct') # Test de Dickey Fuller sin intercepto y tendencia determínistica
+
+# Nota: En el test de ADF si no rechazo la H0 la serie no es estacionaria
+#       y si rechazo la H0 la serie es estacionaria. 
+
+print("=== Test ADF ===")
+print("Estadístico ADF:", adf_result4[0])
+print("p-valor:", adf_result4[1])
+print("Rezagos usados:", adf_result4[2]) 
+print("Observaciones:", adf_result4[3])
+print("Valores críticos:")
+for nivel, valor in adf_result4[4].items():
+    print(f"{nivel}: {valor}")
+
+if adf_result4[1] < 0.05:
+    print("ADF: Rechazamos H0. Según el test, la serie es estacionaria.")
+else:
+    print("ADF: No rechazamos H0. Según el test, la serie no es estacionaria.")
+
+# Test KPSS
+kpss_result4 = kpss(serie_RI_log_diff.dropna(), regression="ct", nlags="auto")
+
+# Nota: En prueba KPSS se interpreta al contario que una prueba ADF.
+#       Si no rechazo la H0 la serie es estacionaria
+#       y si rechazo la H0 la serie es no estacionaria. 
+
+print("\n=== Test KPSS ===")
+print("Estadístico KPSS:", kpss_result4[0])
+print("p-valor:", kpss_result4[1])
+print("Rezagos usados:", kpss_result4[2])
+print("Valores críticos:")
+for nivel, valor in kpss_result4[3].items():
+    print(f"{nivel}: {valor}")
+
+if kpss_result4[1] < 0.05:
+    print("KPSS: rechazamos H0. Según el test, la serie es no estacionaria.")
+else:
+    print("KPSS: no rechazamos H0. Según el test, La serie es estacionaria.")
+
+#Dado que la serie no es estacionaria, no utilizaremos la serie de RI como variable exógena, dado que no es estacionaria. Por lo que se procede a hacer un modelo SARIMAX sin variables exógenas.
+
+#Ahora, usaremos la FAC y la FACP de la serie diferenciada del logaritmo de la tasa de cambio nominal para determinar los parámetros p y q del modelo SARIMAX
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+plot_acf(
+    serie_TC_log_diff.dropna(),
+    lags=24,
+    alpha=0.05,
+    bartlett_confint=False,
+    ax=axes[0],
+)
+axes[0].set_title('FAC - Tasa de Cambio Mensual diferenciada y logaritmada')
 
 
+plot_pacf(
+    serie_TC_log_diff.dropna(),
+    lags=24,
+    alpha=0.05,
+    method='ywm',
+    ax=axes[1],
+)
+axes[1].set_title('FACP - Tasa de Cambio Mensual diferenciada y logaritmada')
+
+# Mostrar la gráfica
+plt.tight_layout()
+plt.show()
+
+#Dado que la serie de tasa de cambio nominal tiene comportamiento de ruido blanco, cambiamos a una serie de tasa de cambio real, basada en el IPC
+
+df_TCR = pd.read_csv(
+    'datos/TCR.csv',
+    sep = ";",  # Le dice a pandas: "el separador de columnas es el punto y coma"
+    decimal=',',  # Le dice a pandas: "la coma es el separador decimal"
+    thousands='.',  # Le dice a pandas: "el punto es el separador de miles"
+)
+
+#Ahora, cambiamos el nombre de las columnas para que sean más fáciles de manejar en el código
+
+df_TCR = df_TCR.rename(
+    columns={
+        'Periodo(MMM DD, AAAA)': 'fecha',
+        'Tasa Representativa del Mercado (TRM)': 'tasa',}
+)
+
+print(df_TCR.head()) #Imprimimos los primeros 5 datos de la base de datos para verificar que se haya cargado correctamente
 
