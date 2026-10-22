@@ -12,6 +12,7 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.stats.diagnostic import acorr_ljungbox, het_arch
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.stattools import adfuller, kpss
+from statsmodels.tsa.ar_model import AutoReg
 
 
 print("hello world!")
@@ -698,42 +699,59 @@ print("Jarque-Bera p-value:", jb_test_sin_primer.pvalue)
 #Como se puede ver, los residuos no presentan normalidad, sin embargo, esto puede ser atribuido a la naturaleza de la serie de tiempo, dado que la tasa de cambio real es una serie que presenta cambios abruptos, por lo que no es raro que los residuos no presenten normalidad. Sin embargo, esto no afecta la validez del modelo, dado que los residuos no presentan autocorrelación serial ni heterocedasticidad.
 
 #4. PRONÓSTICO
+#Dado que los errores presentan anormalidad, utilizaremos bootstrapping para realizar los pronosticos
+p_lags = 12  
+model = AutoReg(serie_TCR, lags=p_lags).fit()
 
-pronostico_log = Resultados_AR.get_forecast(steps=12)
+#Cambiamos los residuos y los parámetros del modelo a variables para poder usarlas en el pronóstico
+params = model.params.values  
 
-# Pronóstico puntual e intervalos de predicción del logaritmo de las exportaciones tradicionales
-pronostico_puntual_log = pronostico_log.predicted_mean
-varianza_pronostico_log = pronostico_log.var_pred_mean
-intervalos_log = pronostico_log.conf_int()
+residuals = model.resid.dropna()
+history = serie_TCR.values[-p_lags:]
 
-# Al retransformar desde logaritmos, exp(E[log(y)]) corresponde a la mediana.
-# Para obtener la media en niveles se usa la corrección por sesgo:
-# E[y] = exp(mu + 0.5 * sigma^2), bajo normalidad en la escala logarítmica.
-pronostico_nivel = np.exp(pronostico_puntual_log + 0.5 * varianza_pronostico_log)
-intervalos_nivel = np.exp(intervalos_log)
+# ==========================================
+# 2. SIMULACIÓN BOOTSTRAP DE RESIDUOS
+# ==========================================
+np.random.seed(42)
+n_simulations = 1000  # Número de trayectorias simuladas
+h_horizon = 10        # Horizonte de pronóstico (ej. 24 períodos hacia adelante)
 
-tabla_pronostico = pd.DataFrame({
-    "pronostico": pronostico_nivel,
-    "limite_inferior": intervalos_nivel.iloc[:, 0],
-    "limite_superior": intervalos_nivel.iloc[:, 1]
-})
+forecasts = np.zeros((h_horizon, n_simulations))
 
-print(tabla_pronostico)
+for i in range(n_simulations):
+    # Remuestreo con reemplazo de los residuos históricos
+    boot_residuals = np.random.choice(residuals, size=h_horizon, replace=True)
+    
+    simulated_path = []
+    current_history = list(history)
+    
+    for step in range(h_horizon):
+        lag_values = current_history[-p_lags:][::-1]
+        # Ecuación del modelo AR + residuo simulado
+        pred = params[0] + np.dot(params[1:], lag_values) + boot_residuals[step]
+        simulated_path.append(pred)
+        current_history.append(pred)
+        
+    forecasts[:, i] = simulated_path
 
-# Gráfica del pronóstico
-plt.figure(figsize=(10, 5))
-plt.plot(serie_TCR, label="Datos históricos")
-plt.plot(pronostico_nivel, label="Pronóstico", color="orange")
-plt.fill_between(
-    pronostico_nivel.index,
-    intervalos_nivel.iloc[:, 0],
-    intervalos_nivel.iloc[:, 1],
-    color="pink",
-    alpha=0.3,
-    label="Intervalo de confianza"
-)
-plt.title("Pronóstico de la Tasa de Cambio Real")
-plt.xlabel("Fecha")
-plt.ylabel("Tasa de Cambio Real")
+# ==========================================
+# 3. CÁLCULO DE INTERVALOS Y GRÁFICO
+# ==========================================
+# Generar fechas futuras 
+future_dates = pd.date_range(start=serie_TCR.index[-1], periods=h_horizon + 1, freq='MS')[1:]
+
+forecast_median = np.median(forecasts, axis=1)
+forecast_lower = np.percentile(forecasts, 5, axis=1)   # Percentil 5% (Límite inferior)
+forecast_upper = np.percentile(forecasts, 95, axis=1)  # Percentil 95% (Límite superior)
+
+plt.figure(figsize=(12, 6))
+plt.plot(serie_TCR.index[-60:], serie_TCR.values[-60:], label='TCR Histórica', color='black')
+plt.plot(future_dates, forecast_median, label='Pronóstico Bootstrap (Mediana)', color='blue', linestyle='--')
+plt.fill_between(future_dates, forecast_lower, forecast_upper, color='blue', alpha=0.2, label='IC 90% Bootstrap')
+
+plt.title('Pronóstico Bootstrap de la Tasa de Cambio Real (TCR) de Colombia')
+plt.xlabel('Fecha')
+plt.ylabel('TCR')
 plt.legend()
+plt.grid(True)
 plt.show()
