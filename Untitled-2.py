@@ -16,7 +16,7 @@ from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.tsa.ar_model import AutoReg
 
 #%%
-
+#Utilizamos pandas para leer el archivo CSV que contiene la serie de tiempo de la tasa de cambio real (TCR) de Colombia.
 df_TCR = pd.read_csv(
     'datos/TCR.csv',
     sep = ",",  # Le dice a pandas: "el separador de columnas es el punto y coma"
@@ -38,7 +38,7 @@ df_TCR = df_TCR.set_index('fecha').sort_index() #Sort_index() ordena el indice d
 #Convertimos la columna de tasa en una serie.
 
 serie_TCR = df_TCR['tasa']
-
+#Esto funciona solamente gracias a la creación del indice interno de fecha, que permite que la serie de tiempo tenga un indice temporal.
 print(serie_TCR.describe()) #Datos estadísticos de la serie de tiempo
 
 plt.figure(figsize=(10, 5))
@@ -322,6 +322,63 @@ print("Prueba Jarque-Bera")
 print("Jarque-Bera statistic:", jb_test.statistic)
 print("Jarque-Bera p-value:", jb_test.pvalue)
 
+# 1. Lista para acumular todos los resultados de las pruebas
+resultados_tabla = []
+
+# --- A. PRUEBAS DE LJUNG-BOX (Autocorrelación serial) ---
+for lag in [6, 12, 18, 24]:
+  # Nota: Dependiendo de tu versión de statsmodels, las columnas de ljung_box pueden llamarse
+  # 'lb_stat'/'lb_pvalue' o 'stat'/'pvalue'. Ajusta los nombres si te da error.
+  stat_lb = (
+      ljung_box.loc[lag, 'lb_stat']
+      if 'lb_stat' in ljung_box.columns
+      else ljung_box.loc[lag, 'stat']
+  )
+  pval_lb = (
+      ljung_box.loc[lag, 'lb_pvalue']
+      if 'lb_pvalue' in ljung_box.columns
+      else ljung_box.loc[lag, 'pvalue']
+  )
+
+  resultados_tabla.append({
+      'Prueba Estadística': f'Ljung-Box (Rezago {lag})',
+      'Estadístico': round(stat_lb, 4),
+      'P-valor': round(pval_lb, 4),
+      'Hipótesis Nula ($H_0$)': 'No autocorrelación serial',
+      'Decisión ($\alpha = 0.05$)': (
+          'No se rechaza $H_0$' if pval_lb > 0.05 else 'Se rechaza $H_0$'
+      ),
+  })
+
+# --- B. PRUEBA ARCH (Heterocedasticidad condicional) ---
+resultados_tabla.append({
+    'Prueba Estadística': 'Prueba ARCH (Lag 12)',
+    'Estadístico': round(arch_test[0], 4),
+    'P-valor': round(arch_test[1], 4),
+    'Hipótesis Nula ($H_0$)': 'Homocedasticidad (Sin efectos ARCH)',
+    'Decisión ($\alpha = 0.05$)': (
+        'No se rechaza $H_0$' if arch_test[1] > 0.05 else 'Se rechaza $H_0$'
+    ),
+})
+
+# --- C. PRUEBA JARQUE-BERA (Normalidad de los residuos) ---
+# Nota: jb_test.statistic y jb_test.pvalue manejan los atributos estándar de statsmodels
+resultados_tabla.append({
+    'Prueba Estadística': 'Jarque-Bera',
+    'Estadístico': round(jb_test.statistic, 4),
+    'P-valor': round(jb_test.pvalue, 4),
+    'Hipótesis Nula ($H_0$)': 'Residuos con distribución normal',
+    'Decisión ($\alpha = 0.05$)': (
+        'No se rechaza $H_0$' if jb_test.pvalue > 0.05 else 'Se rechaza $H_0$'
+    ),
+})
+
+# 2. Crear el DataFrame unificado de todas las tablas de resultados
+df_resumen_diagnostico = pd.DataFrame(resultados_tabla)
+
+# 3. Mostrar la tabla completa 
+display(df_resumen_diagnostico)
+
 #Como se puede ver, los residuos no presentan normalidad, sin embargo, esto puede ser atribuido al efecto de inicialización del modelo, dado que el primer residuo es un valor atípico. Por lo que se procede a eliminar el primer residuo y volver a hacer la prueba de normalidad.
 residuales_sin_primer = residuales.iloc[1:]
 jb_test_sin_primer = jarque_bera(residuales_sin_primer)
@@ -391,4 +448,8 @@ plt.ylabel('TCR')
 plt.legend()
 plt.grid(True)
 plt.show()
+
+
+
+
 # %%
