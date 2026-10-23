@@ -14,11 +14,20 @@ from statsmodels.stats.diagnostic import acorr_ljungbox, het_arch
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.stattools import adfuller, kpss
 from statsmodels.tsa.ar_model import AutoReg
-
+from IPython.display import display
 #%%
 #Utilizamos pandas para leer el archivo CSV que contiene la serie de tiempo de la tasa de cambio real (TCR) de Colombia.
+
+base_path = Path(__file__).resolve().parent
+
+data_path = base_path / 'datos'
+
+ruta_csv = data_path / 'TCR.csv'
+
+
+
 df_TCR = pd.read_csv(
-    'datos/TCR.csv',
+    ruta_csv,
     sep = ",",  # Le dice a pandas: "el separador de columnas es el punto y coma"
     decimal='.',  # Le dice a pandas: "la coma es el separador decimal"
 )
