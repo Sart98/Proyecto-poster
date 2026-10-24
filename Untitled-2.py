@@ -91,7 +91,7 @@ plt.show()
 #%%
 #Ahora, realizamos las pruebas de raiz unitaria ADF y KPSS a la serie de TCR, para ver si es estacionaria o no. En caso de no serlo, se procede a aplicar logaritmo y diferenciación a la serie.
 
-adf_result5 = adfuller(serie_TCR.dropna(), regression='c') # Test de Dickey Fuller sin intercepto y tendencia determínistica
+adf_result5 = adfuller(serie_TCR.dropna(), regression=  'c') # Test de Dickey Fuller sin intercepto y tendencia determínistica
 
 # Nota: En el test de ADF si no rechazo la H0 la serie no es estacionaria
 #       y si rechazo la H0 la serie es estacionaria. 
@@ -336,8 +336,7 @@ resultados_tabla = []
 
 # --- A. PRUEBAS DE LJUNG-BOX (Autocorrelación serial) ---
 for lag in [6, 12, 18, 24]:
-  # Nota: Dependiendo de tu versión de statsmodels, las columnas de ljung_box pueden llamarse
-  # 'lb_stat'/'lb_pvalue' o 'stat'/'pvalue'. Ajusta los nombres si te da error.
+  
   stat_lb = (
       ljung_box.loc[lag, 'lb_stat']
       if 'lb_stat' in ljung_box.columns
@@ -371,7 +370,7 @@ resultados_tabla.append({
 })
 
 # --- C. PRUEBA JARQUE-BERA (Normalidad de los residuos) ---
-# Nota: jb_test.statistic y jb_test.pvalue manejan los atributos estándar de statsmodels
+
 resultados_tabla.append({
     'Prueba Estadística': 'Jarque-Bera',
     'Estadístico': round(jb_test.statistic, 4),
@@ -402,6 +401,45 @@ print("Jarque-Bera p-value:", jb_test_sin_primer.pvalue)
 #%%
 #4. PRONÓSTICO
 #Dado que los errores presentan anormalidad, utilizaremos bootstrapping para realizar los pronosticos
+pronostico_log = Resultados_AR.get_forecast(steps=12)
+
+# Pronóstico puntual e intervalos de predicción del logaritmo de las exportaciones tradicionales
+pronostico_puntual_log = pronostico_log.predicted_mean
+varianza_pronostico_log = pronostico_log.var_pred_mean
+intervalos_log = pronostico_log.conf_int()
+
+# Al retransformar desde logaritmos, exp(E[log(y)]) corresponde a la mediana.
+# Para obtener la media en niveles se usa la corrección por sesgo:
+# E[y] = exp(mu + 0.5 * sigma^2), bajo normalidad en la escala logarítmica.
+pronostico_nivel = np.exp(pronostico_puntual_log + 0.5 * varianza_pronostico_log)
+intervalos_nivel = np.exp(intervalos_log)
+
+tabla_pronostico = pd.DataFrame({
+    "pronostico": pronostico_nivel,
+    "limite_inferior": intervalos_nivel.iloc[:, 0],
+    "limite_superior": intervalos_nivel.iloc[:, 1]
+})
+
+print(tabla_pronostico)
+
+# Gráfica del pronóstico
+plt.figure(figsize=(10, 5))
+plt.plot(serie_TCR, label="Datos históricos")
+plt.plot(pronostico_nivel, label="Pronóstico", color="orange")
+plt.fill_between(
+    pronostico_nivel.index,
+    intervalos_nivel.iloc[:, 0],
+    intervalos_nivel.iloc[:, 1],
+    color="pink",
+    alpha=0.3,
+    label="Intervalo de confianza"
+)
+
+
+
+
+
+
 p_lags = 12  
 model = AutoReg(serie_TCR, lags=p_lags).fit()
 
@@ -416,7 +454,7 @@ history = serie_TCR.values[-p_lags:]
 # ==========================================
 np.random.seed(42)
 n_simulations = 1000  # Número de trayectorias simuladas
-h_horizon = 10        # Horizonte de pronóstico (ej. 24 períodos hacia adelante)
+h_horizon = 10        # Horizonte de pronóstico 
 
 forecasts = np.zeros((h_horizon, n_simulations))
 
